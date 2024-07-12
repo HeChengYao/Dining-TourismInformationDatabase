@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>探索舌尖上的台灣</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+        }
+
+        .banner {
+            background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('taiwan-food-background.jpg');
+            background-size: cover;
+            background-position: center;
+            color: white;
+            padding: 150px 0;
+            text-align: center;
+        }
+
+        .search-container {
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .restaurant-card {
+            margin-bottom: 30px;
+            transition: all 0.3s;
+        }
+
+        .restaurant-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .card {
+            border: none;
+            border-radius: 15px;
+            overflow: hidden;
+        }
+
+        .btn-primary {
+            background-color: #FF5733;
+            border-color: #FF5733;
+        }
+
+        .btn-primary:hover {
+            background-color: #E64A19;
+            border-color: #E64A19;
+        }
+    </style>
+</head>
+
+<body>
+    <section class="banner">
+        <div class="banner-text">
+            <h1 class="display-4 fw-bold">探索舌尖上的台灣</h1>
+            <p class="lead">發現令人驚嘆的美味</p>
+        </div>
+
+        <div class="container">
+            <div class="search-container">
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <select id="regionSelect" class="form-select">
+                            <option selected>請選擇縣市</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <select id="townSelect" class="form-select">
+                            <option selected>請選擇鄉鎮區</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="container mt-5 pt-5">
+        <div id="spotList" class="row">
+            <!-- 餐廳卡片將在這裡動態生成 -->
+        </div>
+    </div>
+
+    <!-- 餐廳詳細信息模態框 -->
+    <div class="modal fade" id="restaurantModal" tabindex="-1" aria-labelledby="restaurantModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="restaurantModalLabel">餐廳詳細信息</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="restaurantModalBody">
+                    <!-- 詳細信息將在這裡動態插入 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            let restaurantData;
+
+            fetch('restaurant_C_f.json')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    restaurantData = data.XML_Head.Infos.Info;
+                    populateRegionSelect();
+                    updateRestaurantList();
+                })
+                .catch(error => {
+                    console.error('Error loading restaurant data:', error);
+                    alert('Failed to load restaurant data. Please check the console for more information.');
+                });
+
+            function populateRegionSelect() {
+                const regionSelect = document.getElementById('regionSelect');
+                regionSelect.innerHTML = '<option selected>請選擇縣市</option>';
+
+                if (!restaurantData || !Array.isArray(restaurantData)) {
+                    console.error('Restaurant data is not available or not in the correct format');
+                    return;
+                }
+
+                const regions = [...new Set(restaurantData.map(item => item.Region))];
+                regions.forEach(region => {
+                    if (region) {
+                        const option = document.createElement('option');
+                        option.value = region;
+                        option.textContent = region;
+                        regionSelect.appendChild(option);
+                    }
+                });
+            }
+
+            document.getElementById('regionSelect').addEventListener('change', function () {
+                const townSelect = document.getElementById('townSelect');
+                townSelect.innerHTML = '<option selected>請選擇鄉鎮區</option>';
+                const selectedRegion = this.value;
+                const towns = [...new Set(restaurantData.filter(item => item.Region === selectedRegion).map(item => item.Town))];
+                towns.forEach(town => {
+                    const option = document.createElement('option');
+                    option.value = town;
+                    option.textContent = town;
+                    townSelect.appendChild(option);
+                });
+                updateRestaurantList();
+            });
+
+            document.getElementById('townSelect').addEventListener('change', updateRestaurantList);
+
+            function updateRestaurantList() {
+                const selectedRegion = document.getElementById('regionSelect').value;
+                const selectedTown = document.getElementById('townSelect').value;
+
+                if (!restaurantData || !Array.isArray(restaurantData)) {
+                    console.error('Restaurant data is not available or not in the correct format');
+                    return;
+                }
+
+                const filteredRestaurants = restaurantData.filter(item =>
+                    (selectedRegion === '請選擇縣市' || item.Region === selectedRegion) &&
+                    (selectedTown === '請選擇鄉鎮區' || item.Town === selectedTown)
+                );
+
+                const spotList = document.getElementById('spotList');
+                spotList.innerHTML = '';
+
+                filteredRestaurants.forEach(restaurant => {
+                    const card = document.createElement('div');
+                    card.className = 'col-md-4 restaurant-card';
+                    card.innerHTML = `
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">${restaurant.Name}</h5>
+                                <p class="card-text">${restaurant.Description ? restaurant.Description.substring(0, 100) + '...' : 'No description available'}</p>
+                                <p class="card-text"><small class="text-muted">地址: ${restaurant.Add || 'N/A'}</small></p>
+                                <button class="btn btn-primary btn-sm" onclick="showRestaurantDetails('${restaurant.Id}')">查看詳情</button>
+                            </div>
+                        </div>
+                    `;
+                    spotList.appendChild(card);
+                });
+            }
+
+            window.showRestaurantDetails = function (restaurantId) {
+                const restaurant = restaurantData.find(item => item.Id === restaurantId);
+                if (!restaurant) {
+                    alert('餐廳信息未找到！');
+                    return;
+                }
+                const modalBody = document.getElementById('restaurantModalBody');
+                modalBody.innerHTML = `
+                    <h2>${restaurant.Name}</h2>
+                    <p>${restaurant.Description || 'No description available'}</p>
+                    <p><strong>地址:</strong> ${restaurant.Add || 'N/A'}</p>
+                    <p><strong>電話:</strong> ${restaurant.Tel || 'N/A'}</p>
+                    <p><strong>營業時間:</strong> ${restaurant.Opentime || 'N/A'}</p>
+                    <p><strong>網站:</strong> ${restaurant.Website || 'N/A'}</p>
+                    <p><strong>停車信息:</strong> ${restaurant.Parkinginfo || 'N/A'}</p>
+                `;
+                const restaurantModal = new bootstrap.Modal(document.getElementById('restaurantModal'));
+                restaurantModal.show();
+            }
+        });
+    </script>
+</body>
+
+</html>
